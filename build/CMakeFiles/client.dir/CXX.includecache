@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../shared/comm.hpp
+sys/socket.h
+-
+iostream
+-
+string.h
+-
+boost/asio.hpp
+-
+
+/mnt/c/Users/kjpra/Desktop/RPS/client.cpp
+iostream
+-
+string
+-
+boost/array.hpp
+-
+boost/asio.hpp
+-
+comm.hpp
+/mnt/c/Users/kjpra/Desktop/RPS/comm.hpp
+

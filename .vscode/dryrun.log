@@ -1,0 +1,6 @@
+make.exe --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/c/Users/kjpra/Desktop/RPS'
+g++ -o server server.cpp comm.cpp -I/mnt/c/libscpp/boost_1_79_0 -lboost_system -pthread
+g++ -o client client.cpp comm.cpp -I/mnt/c/libscpp/boost_1_79_0 -lboost_system -pthread
+make: Leaving directory '/c/Users/kjpra/Desktop/RPS'
+ 
