@@ -8,6 +8,7 @@
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/format.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "comm.hpp"
 
@@ -66,6 +67,7 @@ class gameInfo
       public:
             int nextPlayer = 2;
             int gameNumber;
+            bool gameStarted = false;
             udp::endpoint& host;
             std::unordered_map<udp::endpoint, std::shared_ptr<playerInfo>, udpHash> players;
 
@@ -120,33 +122,26 @@ class udp_server
                   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                   std::cout << client << " + " << command << "\n";
 
-                  if(command == "host") {
-                        createGame(client);
-                        return;
-                  }
+                  if(command == "host") return createGame(client);
+                  
                   if(command.length() >4 && command.substr(0,4) == "join"){
                         int gameNumber = std::stoi(command.substr(4));
-                        if(gameNumber >0) {
-                              joinGame(client, gameNumber);
-                              return;
-                        }
+                        if(gameNumber >0) return joinGame(client, gameNumber);
                   }
-                  auto input = playerCommandsDict.find(command);
+                  
+                  auto input = playerCommandsDict.find(boost::algorithm::to_lower_copy(command));
                   auto gameNum = playerDict.find(client);
                   if(gameNum != playerDict.end() && input != playerCommandsDict.end()){
                         std::shared_ptr<gameInfo> game = gameDict.find(gameNum->second)->second;
-                        queueInput(client, *game, input->second);
-                        return;
+                        return queueInput(client, *game, input->second);
                   }
                   
-                  boost::shared_ptr<std::string> message (new std::string("Hi from server! Bad Command"));
-                  socket_.async_send_to(boost::asio::buffer(*message), remote_endpoint_,
-                        boost::bind(&udp_server::handle_send, this, message,
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+                  return sendError(client, "Bad Command");
             }
 
             void queueInput(udp::endpoint& client, gameInfo& game, playerCommands input){
+                  if(!game.gameStarted) return sendError(client, "Game has not started");
+                  
                   int playerNum = game.players.find(client)->second->playerNumber;
                   game.eventMtx.lock();
                   game.eventQueue.emplace_back(std::pair<int, playerCommands>(playerNum, input));
@@ -154,7 +149,7 @@ class udp_server
             }
 
             void sendError(udp::endpoint& host, string&& errorM){
-                  boost::shared_ptr<std::string> message (new std::string(std::move(errorM)));
+                  boost::shared_ptr<std::string> message (new std::string("Error: " + std::move(errorM)));
                   socket_.async_send_to(boost::asio::buffer(*message), host,
                               boost::bind(&udp_server::handle_send, this, message,
                               boost::asio::placeholders::error,
@@ -163,10 +158,7 @@ class udp_server
 
             void createGame(udp::endpoint& host){
                   //Set up stuff with playerDict & gameDict && gameInfo && playerInfo
-                  if(playerDict.count(host)) {
-                        sendError(host, "You cannot host a game since you are a part of another!");
-                        return;
-                  }
+                  if(playerDict.count(host)) return sendError(host, "You cannot host a game since you are a part of another!");
                   
                   int gameNumber = count++;
                   
@@ -186,14 +178,8 @@ class udp_server
             }
             void joinGame(udp::endpoint& host, int gameNum){
 
-                  if(playerDict.count(host)) {
-                        sendError(host, "You cannot host a game since you are a part of another!");
-                        return;
-                  }
-                  if(!gameDict.count(gameNum)) {
-                        sendError(host, "That game does not exist!");
-                        return;
-                  }
+                  if(playerDict.count(host)) return sendError(host, "You cannot host a game since you are a part of another!");
+                  if(!gameDict.count(gameNum)) return sendError(host, "That game does not exist!");
 
                   std::shared_ptr<gameInfo> game = gameDict[gameNum];
                   std::shared_ptr<playerInfo> p(new playerInfo(gameNum, game->nextPlayer++, std::move(host)));

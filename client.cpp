@@ -27,11 +27,12 @@ int main(int argc, char* argv[]) {
         socket.open(udp::v4());
 
         std::string input;
+        std::cout<< "Welcome! Would you like to host a game <host> or join a game <join #>?\n";
         getline(std::cin, input);
         while(input != "quit"){
             socket.send_to(boost::asio::buffer(input, input.length()), receiver_endpoint);
 
-            std::cout << "Sent " << input << " to server!\n";
+            std::cout << "Debug: Sent " << input << " to server!\n";
         
             boost::array<char,128> recv_buf;
             udp::endpoint sender_endpoint;
@@ -39,7 +40,7 @@ int main(int argc, char* argv[]) {
                 boost::asio::buffer(recv_buf), sender_endpoint
             );
 
-            std::cout << "Received message from server: " << std::string(recv_buf.data()).substr(0,len) << "\n";
+            std::cout << std::string(recv_buf.data()).substr(0,len) << "\n";
             getline(std::cin, input);
         }
 

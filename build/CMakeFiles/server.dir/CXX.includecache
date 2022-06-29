@@ -23,6 +23,8 @@ chrono
 -
 thread
 -
+mutex
+-
 unordered_map
 -
 boost/asio.hpp
@@ -32,6 +34,8 @@ boost/array.hpp
 boost/bind.hpp
 -
 boost/format.hpp
+-
+boost/algorithm/string.hpp
 -
 comm.hpp
 /mnt/c/Users/kjpra/Desktop/RPS/comm.hpp
