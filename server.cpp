@@ -72,6 +72,7 @@ class gameInfo
             std::unordered_map<udp::endpoint, std::shared_ptr<playerInfo>, udpHash> players;
 
             std::mutex eventMtx;
+
             std::vector<std::pair<int, playerCommands>> eventQueue;
             
             gameInfo(int gameNumber, udp::endpoint& host) :
@@ -107,9 +108,6 @@ class udp_server
                   if(!error)
                   {
                         std::thread(&udp_server::demultiplex, this, remote_endpoint_, std::string(recv_buffer_.data()).substr(0,bytesRead)).detach();
-                        for(auto i = playerDict.begin(); i != playerDict.end(); ++i){
-                              std::cout << i->first << ", " << i->second << "\n";
-                        }
                         start_receive();
                   }
             }
@@ -119,7 +117,7 @@ class udp_server
                   {}
 
             void demultiplex(udp::endpoint client, std::string command) {
-                  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                  // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                   std::cout << client << " + " << command << "\n";
 
                   if(command == "host") return createGame(client);
@@ -128,19 +126,41 @@ class udp_server
                         int gameNumber = std::stoi(command.substr(4));
                         if(gameNumber >0) return joinGame(client, gameNumber);
                   }
+
+                  //Player should exists at this point
+                  auto player = playerDict.find(client);
+                  if(player == playerDict.end()) return sendMessage(client, "Error: Bad Command");
+
+                  int gameNumber = player->second;
+                  bool* gameStarted = &gameDict.find(gameNumber)->second->gameStarted;
+
+                  if(command == "start") {
+                        *gameStarted = true;
+                        sendMessage(client, "Success: Game starting...");
+                        return runGame(gameNumber);
+                  }
+                  if(command == "status"){
+                        return waitGame(client, gameStarted);
+                  }
                   
                   auto input = playerCommandsDict.find(boost::algorithm::to_lower_copy(command));
                   auto gameNum = playerDict.find(client);
-                  if(gameNum != playerDict.end() && input != playerCommandsDict.end()){
+                  if(gameNum != playerDict.end() && input != playerCommandsDict.end()) {
                         std::shared_ptr<gameInfo> game = gameDict.find(gameNum->second)->second;
                         return queueInput(client, *game, input->second);
                   }
                   
-                  return sendError(client, "Bad Command");
+                  return sendMessage(client, "Error: Bad Command");
+            }
+
+            void waitGame(udp::endpoint& client, bool* start) {
+                        if(*start) return sendMessage(client, "start");
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        sendMessage(client, "waiting");
             }
 
             void queueInput(udp::endpoint& client, gameInfo& game, playerCommands input){
-                  if(!game.gameStarted) return sendError(client, "Game has not started");
+                  if(!game.gameStarted) return sendMessage(client, "Error: Game has not started");
                   
                   int playerNum = game.players.find(client)->second->playerNumber;
                   game.eventMtx.lock();
@@ -148,8 +168,8 @@ class udp_server
                   game.eventMtx.unlock();
             }
 
-            void sendError(udp::endpoint& host, string&& errorM){
-                  boost::shared_ptr<std::string> message (new std::string("Error: " + std::move(errorM)));
+            void sendMessage(udp::endpoint& host, string&& errorM){
+                  boost::shared_ptr<std::string> message (new std::string(std::move(errorM)));
                   socket_.async_send_to(boost::asio::buffer(*message), host,
                               boost::bind(&udp_server::handle_send, this, message,
                               boost::asio::placeholders::error,
@@ -158,7 +178,7 @@ class udp_server
 
             void createGame(udp::endpoint& host){
                   //Set up stuff with playerDict & gameDict && gameInfo && playerInfo
-                  if(playerDict.count(host)) return sendError(host, "You cannot host a game since you are a part of another!");
+                  if(playerDict.count(host)) return sendMessage(host, "Error: You cannot host a game since you are a part of another!");
                   
                   int gameNumber = count++;
                   
@@ -169,31 +189,24 @@ class udp_server
                   game->players[p1->playerEndpoint] = p1;
                   playerDict[p1->playerEndpoint] = gameNumber;
 
-                  boost::shared_ptr<std::string> message (new std::string(str(boost::format("You created game %1%!") % std::to_string(gameNumber))));
-                  socket_.async_send_to(boost::asio::buffer(*message), host,
-                              boost::bind(&udp_server::handle_send, this, message,
-                              boost::asio::placeholders::error,
-                              boost::asio::placeholders::bytes_transferred));
-                  runGame();
+                  sendMessage(host, str(boost::format("Success: You created game %1%!") % std::to_string(gameNumber)));
             }
+
             void joinGame(udp::endpoint& host, int gameNum){
 
-                  if(playerDict.count(host)) return sendError(host, "You cannot host a game since you are a part of another!");
-                  if(!gameDict.count(gameNum)) return sendError(host, "That game does not exist!");
+                  if(playerDict.count(host)) return sendMessage(host, "Error: You cannot join a game since you are a part of another!");
+                  if(!gameDict.count(gameNum)) return sendMessage(host, "Error: That game does not exist!");
 
                   std::shared_ptr<gameInfo> game = gameDict[gameNum];
                   std::shared_ptr<playerInfo> p(new playerInfo(gameNum, game->nextPlayer++, std::move(host)));
                   game->players[p->playerEndpoint] = p;
 
                   playerDict[p->playerEndpoint] = gameNum;
-
-                  boost::shared_ptr<std::string> message (new std::string(str(boost::format("You joined game %1%!") % std::to_string(gameNum))));
-                  socket_.async_send_to(boost::asio::buffer(*message), host,
-                              boost::bind(&udp_server::handle_send, this, message,
-                              boost::asio::placeholders::error,
-                              boost::asio::placeholders::bytes_transferred));
+                  
+                  sendMessage(host, str(boost::format("Success: You joined game %1%!") % std::to_string(gameNum)));
             }
-            void runGame() {
+            
+            void runGame(int gameNumber) {
                   std::this_thread::sleep_for(std::chrono::milliseconds(4000));
             }
 

@@ -29,20 +29,40 @@ int main(int argc, char* argv[]) {
         std::string input;
         std::cout<< "Welcome! Would you like to host a game <host> or join a game <join #>?\n";
         getline(std::cin, input);
+
+        boost::array<char,128> recv_buf;
+        udp::endpoint sender_endpoint;
+        std::string res;
+        
         while(input != "quit"){
             socket.send_to(boost::asio::buffer(input, input.length()), receiver_endpoint);
 
             std::cout << "Debug: Sent " << input << " to server!\n";
         
-            boost::array<char,128> recv_buf;
-            udp::endpoint sender_endpoint;
+            
             size_t len = socket.receive_from(
                 boost::asio::buffer(recv_buf), sender_endpoint
             );
 
-            std::cout << std::string(recv_buf.data()).substr(0,len) << "\n";
+            res.assign(recv_buf.data(), len);
+            std::cout << "Debug: " << res << "\n";
+
+            if(res.find("Success") != std::string::npos && input != "host") break; //Host started the game, or player joined successfully
             getline(std::cin, input);
         }
+
+        while(res != "start" && input != "start"){
+            std::cout << "Waiting for game to start ...\n";
+            socket.send_to(boost::asio::buffer("status", 6), receiver_endpoint);
+
+            size_t len = socket.receive_from(
+                boost::asio::buffer(recv_buf), sender_endpoint
+            );
+            res.assign(recv_buf.data(), len);
+        }
+
+        std::cout<< "Game started!\n";
+
 
     }
     catch (std::exception& e)
