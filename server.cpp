@@ -73,6 +73,9 @@ class gameInfo
 
             std::mutex eventMtx;
 
+            std::condition_variable cv;
+            std::mutex startM;
+
             std::vector<std::pair<int, playerCommands>> eventQueue;
             
             gameInfo(int gameNumber, udp::endpoint& host) :
@@ -132,15 +135,14 @@ class udp_server
                   if(player == playerDict.end()) return sendMessage(client, "Error: Bad Command");
 
                   int gameNumber = player->second;
-                  bool* gameStarted = &gameDict.find(gameNumber)->second->gameStarted;
+                  gameInfo& game = *(gameDict.find(gameNumber)->second);
 
                   if(command == "start") {
-                        *gameStarted = true;
                         sendMessage(client, "Success: Game starting...");
-                        return runGame(gameNumber);
+                        return runGame(game);
                   }
                   if(command == "status"){
-                        return waitGame(client, gameStarted);
+                        return waitGame(client, game);
                   }
                   
                   auto input = playerCommandsDict.find(boost::algorithm::to_lower_copy(command));
@@ -153,19 +155,14 @@ class udp_server
                   return sendMessage(client, "Error: Bad Command");
             }
 
-            void waitGame(udp::endpoint& client, bool* start) {
-                        if(*start) return sendMessage(client, "start");
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                        sendMessage(client, "waiting");
-            }
-
             void queueInput(udp::endpoint& client, gameInfo& game, playerCommands input){
                   if(!game.gameStarted) return sendMessage(client, "Error: Game has not started");
                   
                   int playerNum = game.players.find(client)->second->playerNumber;
-                  game.eventMtx.lock();
-                  game.eventQueue.emplace_back(std::pair<int, playerCommands>(playerNum, input));
-                  game.eventMtx.unlock();
+                  {
+                        std::lock_guard<std::mutex> eventLock(game.eventMtx);
+                        game.eventQueue.emplace_back(std::pair<int, playerCommands>(playerNum, input));
+                  }
             }
 
             void sendMessage(udp::endpoint& host, string&& errorM){
@@ -205,9 +202,35 @@ class udp_server
                   
                   sendMessage(host, str(boost::format("Success: You joined game %1%!") % std::to_string(gameNum)));
             }
-            
-            void runGame(int gameNumber) {
-                  std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+
+            void waitGame(udp::endpoint& client, gameInfo& game) {
+                  std::unique_lock<std::mutex> startLock(game.startM);
+                  std::cout << client << " entered wait\n";
+                  
+                  if(game.cv.wait_for(startLock, std::chrono::milliseconds(5000),
+                        [&](){
+                  return game.gameStarted;}))
+                  {
+                        std::cout << client << " exits with start\n";
+                        // game.cv.notify_all();
+                        return sendMessage(client, "start");
+                  }
+                  
+                  std::cout << client << " exits with wait\n";
+                  return sendMessage(client, "waiting");
+                        // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            }
+
+            void runGame(gameInfo& game) {
+                  game.gameStarted = true;
+                  game.cv.notify_all();
+
+                  int count = 0;
+                  while(count < 5){
+                        std::cout << "Game " << game.gameNumber << " is running\n";
+                        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+                        count++;
+                  }
             }
 
             udp::socket socket_;

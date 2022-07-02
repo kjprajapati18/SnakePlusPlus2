@@ -48,6 +48,8 @@ int main(int argc, char* argv[]) {
             std::cout << "Debug: " << res << "\n";
 
             if(res.find("Success") != std::string::npos && input != "host") break; //Host started the game, or player joined successfully
+            if(res.find("Success") != std::string::npos && input == "host")
+                std::cout << "Game successfully created! Please enter 'start' to begin the game for all players\n";
             getline(std::cin, input);
         }
 
