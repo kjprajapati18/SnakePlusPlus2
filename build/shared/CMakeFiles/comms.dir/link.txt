@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcomms.a  CMakeFiles/comms.dir/comm.cpp.o
-/usr/bin/ranlib libcomms.a

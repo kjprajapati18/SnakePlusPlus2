@@ -1,7 +1,0 @@
-/mnt/c/Users/kjpra/Desktop/RPS/build/CMakeFiles/rebuild_cache.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/CMakeFiles/edit_cache.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/CMakeFiles/client.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/CMakeFiles/server.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/shared/CMakeFiles/rebuild_cache.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/shared/CMakeFiles/edit_cache.dir
-/mnt/c/Users/kjpra/Desktop/RPS/build/shared/CMakeFiles/comms.dir

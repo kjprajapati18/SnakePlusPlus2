@@ -1,1 +1,0 @@
-/usr/bin/g++  -g   CMakeFiles/server.dir/server.cpp.o  -o server  /usr/lib/x86_64-linux-gnu/libboost_system.so.1.71.0 shared/libcomms.a -pthread 
