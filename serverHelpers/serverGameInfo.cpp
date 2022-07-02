@@ -1,4 +1,4 @@
-#include "serverGameInfo.hpp"
+#include "serverGameInfo.h"
 
 using boost::asio::ip::udp;
 

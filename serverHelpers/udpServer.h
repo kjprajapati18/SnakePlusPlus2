@@ -10,7 +10,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
-#include "serverGameInfo.hpp"
+#include "serverGameInfo.h"
 
 class udp_server
 {

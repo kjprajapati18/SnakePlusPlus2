@@ -17,7 +17,7 @@ find_package(Threads REQUIRED)
 list(APPEND LIBS Threads::Threads)
 
 
-add_subdirectory(shared)
+add_subdirectory(serverHelpers)
 list(APPEND LIBS serverGameInfo udpServer)
 
 include_directories(${INC})

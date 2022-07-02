@@ -1,6 +1,7 @@
-#include "udpServer.hpp"
+#include "udpServer.h"
 
 using boost::asio::ip::udp;
+using boostError = boost::system::error_code;
 
 udp_server::udp_server(boost::asio::io_context &io_context)
     : socket_(io_context, udp::endpoint(udp::v4(), 3000)),
@@ -22,7 +23,7 @@ void udp_server::start_receive()
                     boost::asio::placeholders::bytes_transferred));
 }
 
-void udp_server::handle_receive(const boost::system::error_code &error, std::size_t bytesRead)
+void udp_server::handle_receive(const boostError &error, std::size_t bytesRead)
 {
     if (!error)
     {
@@ -31,7 +32,7 @@ void udp_server::handle_receive(const boost::system::error_code &error, std::siz
     }
 }
 
-void udp_server::handle_send(boost::shared_ptr<std::string>, const boost::system::error_code &, std::size_t) {}
+void udp_server::handle_send(boost::shared_ptr<std::string>, const boostError &, std::size_t) {}
 
 void udp_server::demultiplex(udp::endpoint client, std::string command)
 {
@@ -89,7 +90,7 @@ void udp_server::queueInput(udp::endpoint &client, gameInfo &game, playerCommand
     }
 }
 
-void udp_server::sendMessage(boost::asio::ip::udp::endpoint &host, std::string &&errorM)
+void udp_server::sendMessage(udp::endpoint &host, std::string &&errorM)
 {
     boost::shared_ptr<std::string> message(new std::string(std::move(errorM)));
     socket_.async_send_to(boost::asio::buffer(*message), host,
@@ -98,7 +99,7 @@ void udp_server::sendMessage(boost::asio::ip::udp::endpoint &host, std::string &
                                       boost::asio::placeholders::bytes_transferred));
 }
 
-void udp_server::createGame(boost::asio::ip::udp::endpoint &host)
+void udp_server::createGame(udp::endpoint &host)
 {
     // Set up stuff with playerDict & gameDict && gameInfo && playerInfo
     if (playerDict.count(host))
@@ -116,7 +117,7 @@ void udp_server::createGame(boost::asio::ip::udp::endpoint &host)
     sendMessage(host, str(boost::format("Success: You created game %1%!") % std::to_string(gameNumber)));
 }
 
-void udp_server::joinGame(boost::asio::ip::udp::endpoint &host, int gameNum)
+void udp_server::joinGame(udp::endpoint &host, int gameNum)
 {
 
     if (playerDict.count(host))
@@ -133,7 +134,7 @@ void udp_server::joinGame(boost::asio::ip::udp::endpoint &host, int gameNum)
     sendMessage(host, str(boost::format("Success: You joined game %1%!") % std::to_string(gameNum)));
 }
 
-void udp_server::waitGame(boost::asio::ip::udp::endpoint &client, gameInfo &game)
+void udp_server::waitGame(udp::endpoint &client, gameInfo &game)
 {
     std::unique_lock<std::mutex> startLock(game.startM);
 
