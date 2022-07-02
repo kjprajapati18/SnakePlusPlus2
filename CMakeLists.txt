@@ -18,7 +18,7 @@ list(APPEND LIBS Threads::Threads)
 
 
 add_subdirectory(shared)
-list(APPEND LIBS comms)
+list(APPEND LIBS serverGameInfo)
 
 include_directories(${INC})
 

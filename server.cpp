@@ -10,79 +10,9 @@
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include "comm.hpp"
+#include "serverGameInfo.hpp"
 
 using boost::asio::ip::udp;
-
-static int count = 1;
-
-enum playerCommands
-{
-      UP,
-      DOWN,
-      RIGHT,
-      LEFT,
-      SHOOT,
-      QUIT,
-};
-std::unordered_map<std::string, playerCommands> playerCommandsDict({
-      {"up", UP},
-      {"down", DOWN},
-      {"right", RIGHT},
-      {"left", LEFT},
-      {"shoot", SHOOT},
-      {"quit", QUIT},
-});
-
-class udpHash {
-      public:
-            std::size_t operator()(const udp::endpoint& endpoint) const{
-                  std::ostringstream stream;
-                  stream << endpoint;
-                  std::hash<std::string> hasher;
-
-                  return hasher(stream.str());
-            }
-};
-
-class playerInfo
-{
-      public:
-            playerInfo(int gameNumber, int playerNumber, udp::endpoint&& playerEndpoint) :
-                  gameNumber(gameNumber), playerNumber(playerNumber), playerEndpoint(std::move(playerEndpoint)), 
-                  ping(0), x(0), y(0)
-            {}
-
-            udp::endpoint playerEndpoint;
-            int gameNumber, playerNumber;
-            int ping;
-            int x,y;
-      private:
-
-
-};
-
-class gameInfo
-{
-      public:
-            int nextPlayer = 2;
-            int gameNumber;
-            bool gameStarted = false;
-            udp::endpoint& host;
-            std::unordered_map<udp::endpoint, std::shared_ptr<playerInfo>, udpHash> players;
-
-            std::mutex eventMtx;
-
-            std::condition_variable cv;
-            std::mutex startM;
-
-            std::vector<std::pair<int, playerCommands>> eventQueue;
-            
-            gameInfo(int gameNumber, udp::endpoint& host) :
-                  gameNumber(gameNumber), host(host)
-            {}
-
-};
 
 class udp_server
 {
@@ -165,7 +95,7 @@ class udp_server
                   }
             }
 
-            void sendMessage(udp::endpoint& host, string&& errorM){
+            void sendMessage(udp::endpoint& host, std::string&& errorM){
                   boost::shared_ptr<std::string> message (new std::string(std::move(errorM)));
                   socket_.async_send_to(boost::asio::buffer(*message), host,
                               boost::bind(&udp_server::handle_send, this, message,
@@ -177,7 +107,7 @@ class udp_server
                   //Set up stuff with playerDict & gameDict && gameInfo && playerInfo
                   if(playerDict.count(host)) return sendMessage(host, "Error: You cannot host a game since you are a part of another!");
                   
-                  int gameNumber = count++;
+                  int gameNumber = nextGameNumber++;
                   
                   std::shared_ptr<playerInfo> p1(new playerInfo(gameNumber, 1, std::move(host)));
                   std::shared_ptr<gameInfo> game(new gameInfo(gameNumber, p1->playerEndpoint));
@@ -207,12 +137,11 @@ class udp_server
                   std::unique_lock<std::mutex> startLock(game.startM);
                   std::cout << client << " entered wait\n";
                   
-                  if(game.cv.wait_for(startLock, std::chrono::milliseconds(5000),
-                        [&](){
-                  return game.gameStarted;}))
+                  if(game.cv.wait_for(startLock, std::chrono::milliseconds(5000), [&](){
+                        return game.gameStarted;
+                  }))
                   {
                         std::cout << client << " exits with start\n";
-                        // game.cv.notify_all();
                         return sendMessage(client, "start");
                   }
                   

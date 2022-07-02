@@ -5,8 +5,6 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 
-#include "comm.hpp"
-
 using boost::asio::ip::udp;
 
 
