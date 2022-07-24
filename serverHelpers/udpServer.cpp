@@ -1,4 +1,6 @@
 #include "udpServer.h"
+#include <chrono>
+#include <sstream>
 
 using boost::asio::ip::udp;
 using boostError = boost::system::error_code;
@@ -114,6 +116,8 @@ void udp_server::createGame(udp::endpoint &host)
     game->players[p1->playerEndpoint] = p1;
     playerDict[p1->playerEndpoint] = gameNumber;
 
+    randomizeSpawn(*game, *p1);
+
     sendMessage(host, str(boost::format("Success: You created game %1%!") % std::to_string(gameNumber)));
 }
 
@@ -129,9 +133,11 @@ void udp_server::joinGame(udp::endpoint &host, int gameNum)
     std::shared_ptr<playerInfo> p(new playerInfo(gameNum, game->nextPlayer++, std::move(host)));
     game->players[p->playerEndpoint] = p;
 
+    randomizeSpawn(*game, *p);
+
     playerDict[p->playerEndpoint] = gameNum;
 
-    sendMessage(host, str(boost::format("Success: You joined game %1%!") % std::to_string(gameNum)));
+    sendMessage(host, str(boost::format("Success: You joined game %1% as player %2%!") % std::to_string(gameNum) % std::to_string(p->playerNumber)));
 }
 
 void udp_server::waitGame(udp::endpoint &client, gameInfo &game)
@@ -148,16 +154,93 @@ void udp_server::waitGame(udp::endpoint &client, gameInfo &game)
     // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 }
 
+// DEBUGGING ONLY
+void prettyPrint(std::array<std::array<int,8>,8> board)
+{
+    for(int y = 0; y < 8; y++)
+    {
+        std::cout << "[ ";
+        for(int x = 0; x < 8; x++)
+        {
+            std::cout << board[x][y] << " ";
+        }
+        std::cout << "]\n";
+    }
+}
+
 void udp_server::runGame(gameInfo &game)
 {
+    using namespace std::chrono;
+    // HANDLE ACTUAL UPDATES
     game.gameStarted = true;
     game.cv.notify_all();
 
+    int tickRate = 2;
+    float MS_PER_TICK = 1000 / tickRate;
+
+    uint64_t initTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    uint64_t delta = 0;
     int count = 0;
-    while (count < 5)
+
+    while (true)
     {
-        std::cout << "Game " << game.gameNumber << " is running\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-        count++;
+        uint64_t curTime = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        delta += curTime - initTime;
+        initTime = curTime;
+        if (delta >= MS_PER_TICK)
+        {
+            delta -= MS_PER_TICK;
+            // Perform Update here
+            if(count >= 10) {
+                std::cout << "Game " << game.gameNumber << " is running\n";
+                count -= 10;
+            }
+            sendUpdateToPlayers(game);
+            count++;
+            //  TODO:: Check eventQueue population
+            //
+            // for(int i = 0; i < game.eventQueue.size(); i++){
+            //     std::cout << game.eventQueue.at(i).first << "," << game.eventQueue.at(i).first << " ";
+            // }
+            // std::cout << "\n";
+            // prettyPrint(game.board); //For debugging
+        }
     }
+}
+
+void udp_server::sendUpdateToPlayers(gameInfo &game)
+{
+    std::stringstream ss;
+    auto firstPlayer = game.players.begin();
+    for (auto iter = firstPlayer; iter != game.players.end(); iter++)
+    {
+        if (iter != firstPlayer)
+            ss << " ";
+        auto player = iter->second; // pointer to PlayerInfo Struct
+        int pNum = player->playerNumber;
+        int pX = player->x;
+        int pY = player->y;
+        ss << pNum << "," << pX << "," << pY;
+    }
+    
+    for (auto iter = game.players.begin(); iter != game.players.end(); iter++)
+    {
+        udp::endpoint &playerEndpoint = iter->second->playerEndpoint; // pointer to PlayerInfo Struct
+        sendMessage(playerEndpoint, ss.str());
+    }
+}
+
+void udp_server::randomizeSpawn(gameInfo &game, playerInfo &player)
+{
+    int x, y;
+    do
+    {
+        x = std::rand() % 8;
+        y = std::rand() % 8;
+        std::cout << x << ',' << y << '\n';
+    } while (game.board[x][y] != 0);
+    game.board[x][y] = player.playerNumber;
+    player.x = x;
+    player.y = y;
+    prettyPrint(game.board);
 }

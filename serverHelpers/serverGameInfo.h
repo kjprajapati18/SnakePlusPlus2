@@ -38,6 +38,7 @@ class gameInfo
       public:
             int nextPlayer;
             int gameNumber;
+            std::array<std::array<int, 8>, 8> board;
             bool gameStarted;
             boost::asio::ip::udp::endpoint& host;
             std::unordered_map<boost::asio::ip::udp::endpoint, std::shared_ptr<playerInfo>, udpHash> players;

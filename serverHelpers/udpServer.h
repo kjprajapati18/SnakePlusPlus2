@@ -40,5 +40,6 @@ private:
     void runGame(gameInfo &game);
 
     void queueInput(boost::asio::ip::udp::endpoint &client, gameInfo &game, playerCommands input);
-
+    void sendUpdateToPlayers(gameInfo& game);
+    void randomizeSpawn(gameInfo& game, playerInfo& p);
 };

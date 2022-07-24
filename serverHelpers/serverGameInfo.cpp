@@ -30,4 +30,10 @@ playerInfo::playerInfo(int gameNumber, int playerNumber, udp::endpoint&& playerE
 // gameInfo class
 gameInfo::gameInfo(int gameNumber, udp::endpoint& host) :
     gameNumber(gameNumber), host(host), nextPlayer(2), gameStarted(false)
-{}
+{
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            board[i][j] = 0;
+        }
+    }
+}

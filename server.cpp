@@ -1,6 +1,7 @@
 #include "udpServer.h"
 
 int main() {
+      srand(time(NULL));
       try {
             boost::asio::io_context io_context;
             udp_server server(io_context);
